@@ -1,36 +1,44 @@
-select *
-from layoffs;
+-- Section 1: Initial Data Inspection
 
+SELECT *
+FROM layoffs;
+
+-- Section 2: Create Staging Table
 
 CREATE TABLE layoffs_staging
-Like layoffs;
+LIKE layoffs;
 
+SELECT *
+FROM layoffs_staging;
 
-select *
-from layoffs_staging;
+-- Section 3: Insert Data into Staging Table
 
-insert layoffs_staging
-select *
-from layoffs;
+INSERT INTO layoffs_staging
+SELECT *
+FROM layoffs;
 
-select *,
-ROW_NUMBER() OVER(
-PARTITION BY company, industry, total_laid_off, percentage_laid_off, `date`) AS row_num
-from layoffs_staging;
+-- Section 4: Identify Potential Duplicates
 
-WITH duplicate_cte AS
-(
-select *,
-ROW_NUMBER() OVER(
-PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, `date`, stage, country, funds_raised_millions ) AS row_num
-from layoffs_staging
+SELECT *,
+ROW_NUMBER() OVER (
+  PARTITION BY company, industry, total_laid_off, percentage_laid_off, `date`
+) AS row_num
+FROM layoffs_staging;
+
+WITH duplicate_cte AS (
+  SELECT *,
+  ROW_NUMBER() OVER (
+    PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, `date`, stage, country, funds_raised_millions
+  ) AS row_num
+  FROM layoffs_staging
 )
-select *
-from duplicate_cte
-where row_num > 1;
+SELECT *
+FROM duplicate_cte
+WHERE row_num > 1;
 
+-- Section 5: Create Second Staging Table to Store Cleaned Data
 
-create table `layoffs_staging2` (
+CREATE TABLE `layoffs_staging2` (
   `company` TEXT,
   `location` TEXT,
   `industry` TEXT,
@@ -39,24 +47,27 @@ create table `layoffs_staging2` (
   `date` TEXT,
   `stage` TEXT,
   `country` TEXT,
-  `funds_raised_millions` INT DEFAULT NULL,	
+  `funds_raised_millions` INT DEFAULT NULL,
   `row_num` INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-select*
-from layoffs_staging2
-where row_num>1;
+SELECT *
+FROM layoffs_staging2
+WHERE row_num > 1;
 
-insert into layoffs_staging2
-select *,
-ROW_NUMBER() OVER(
-PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, `date`, stage, country, funds_raised_millions ) AS row_num
-from layoffs_staging;
+-- Section 6: Insert Data into Second Staging Table
 
+INSERT INTO layoffs_staging2
+SELECT *,
+ROW_NUMBER() OVER (
+  PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, `date`, stage, country, funds_raised_millions
+) AS row_num
+FROM layoffs_staging;
 delete
 from layoffs_staging2
 WHERE row_num>1;
 
+-- Section 7:Various Transformation and Cleanup Process
 
 select company, trim(company)
 from layoffs_staging2;
